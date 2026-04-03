@@ -1,0 +1,36 @@
+# ==========================================
+# 多智能体呼吸机调控系统 .gitignore 
+# ==========================================
+
+# 1. 核心数据与隐私 (绝对不能上传 MIMIC 数据)
+data/
+*.csv
+*.xlsx
+*.db
+
+# 2. 深度学习模型权重 (文件太大，不要上传)
+models/saved_weights/
+*.pt
+*.pth
+*.h5
+
+# 3. 环境变量与机密信息 (包含数据库账号密码)
+.env
+configs/local_secrets.yaml
+
+# 4. Python 编译产生的垃圾文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 5. Jupyter Notebook 缓存文件
+.ipynb_checkpoints/
+
+# 6. 虚拟环境文件夹 (如果你把虚拟环境建在了项目里)
+venv/
+env/
+.conda/
+
+# 7. 操作系统自动生成的隐藏文件
+.DS_Store    # Mac OS 专属垃圾文件
+Thumbs.db    # Windows 专属垃圾文件
