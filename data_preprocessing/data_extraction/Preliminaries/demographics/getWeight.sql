@@ -4,36 +4,49 @@
 -- This query extracts weights for adult ICU patients with start/stop times
 -- if an admission weight is given, then this is assigned from intime to outtime
 
-use mimic4;
+-- ==============================================================================
+-- 【全局设置】
+-- chartevents 和 icustays 都在 mimiciv_icu 模式下
+-- ==============================================================================
+SET search_path TO mimiciv_icu, mimiciv_hosp, public;
 
-select * from d_items where label like '%weight%';
-select * from chartevents limit 10;
+-- 这两句是供你单独查询字典和样本看的，可以独立运行
+-- select * from d_items where label like '%weight%';
+-- select * from chartevents limit 10;
 
-DROP table IF EXISTS `getWeight`;
-CREATE table `getWeight` as
+DROP TABLE IF EXISTS getWeight;
 
+CREATE TABLE getWeight AS
+
+-- ==============================================================================
+-- 第一阶段：提取原始体重数据并转换单位 (CTE: wt_stg)
+-- 目标：从生命体征事件表(chartevents)中捞出所有体重记录，把磅(lbs)换算成公斤(kg)
+-- ==============================================================================
 with wt_stg as
 (
     SELECT
-        c.stay_id, c.charttime
-      , case when c.itemid in (762,226512) then 'admit'
-          else 'daily' end as weight_type
-      , case when c.itemid in (226531) then c.valuenum*0.453592
-		else  c.valuenum end as weight
-    FROM `chartevents` c
+        c.stay_id, 
+        c.charttime,
+        -- 判断是入院体重 (admit) 还是日常称重 (daily)
+        case when c.itemid in (762, 226512) then 'admit'
+             else 'daily' end as weight_type,
+        -- 单位换算：如果是 lbs (226531)，乘以 0.453592 转为 kg
+        case when c.itemid in (226531) then c.valuenum * 0.453592
+             else c.valuenum end as weight
+    FROM chartevents c
     WHERE c.valuenum IS NOT NULL
       AND c.itemid in
       (
-         762,226512 -- Admit Wt
-         ,226531  -- Admit Wt lbs
-        ,763,224639 -- Daily Weight
+         762, 226512  -- Admit Wt (入院体重)
+        ,226531       -- Admit Wt lbs (入院体重-磅)
+        ,763, 224639  -- Daily Weight (日常体重)
       )
       AND c.valuenum != 0
-      -- exclude rows marked as error
 )
 
-
--- assign ascending row number
+-- ==============================================================================
+-- 第二阶段：按时间排序打上行号 (CTE: wt_stg1)
+-- ==============================================================================
 , wt_stg1 as
 (
   select
@@ -41,37 +54,54 @@ with wt_stg as
     , charttime
     , weight_type
     , weight
+    -- 按照时间先后顺序给每次称重排个号 (1, 2, 3...)
     , ROW_NUMBER() OVER (partition by stay_id, weight_type order by charttime) as rn
   from wt_stg
 )
--- change charttime to starttime - for admit weight, we use ICU admission time
+
+-- ==============================================================================
+-- 第三阶段：对齐 ICU 入院时间 (CTE: wt_stg2)
+-- 目标：如果有入院体重记录，尝试将其时间提前到刚好入 ICU 之前 (作为基准)
+-- ==============================================================================
 , wt_stg2 as
 (
   select
       wt_stg1.stay_id
-    , ie.intime, ie.outtime
+    , ie.intime
+    , ie.outtime
+    -- 如果是第一笔入院体重，把它的生效时间往前推2小时 (覆盖刚入科还没来得及记录的盲区)
     , case when wt_stg1.weight_type = 'admit' and wt_stg1.rn = 1
-        then ie.intime - interval '2' hour
+        then ie.intime - interval '2 hour'
       else wt_stg1.charttime end as starttime
     , wt_stg1.weight
-  from `icustays` ie
+  from icustays ie
   inner join wt_stg1
     on ie.stay_id = wt_stg1.stay_id
+  -- 注：这里原代码有一处过滤逻辑，排除了所有入院第一笔记录，保留原样以维持特征分布一致性
   where not (weight_type = 'admit' and rn = 1)
 )
+
+-- ==============================================================================
+-- 第四阶段：计算每次体重的“有效期” (CTE: wt_stg3)
+-- 目标：体重不是一个瞬间值，而是一个状态段。比如1号测了体重，3号才测下一次，那么1-3号都用1号的体重
+-- ==============================================================================
 , wt_stg3 as
 (
   select
     stay_id
     , starttime
+    -- 寻找下一次称重的时间 (LEAD函数)，如果没有下一次了，就用出ICU的时间+2小时作为结束
     , coalesce(
         LEAD(starttime) OVER (PARTITION BY stay_id ORDER BY starttime),
-        outtime + interval '2' hour
+        outtime + interval '2 hour'
       ) as endtime
     , weight
   from wt_stg2
 )
--- this table is the start/stop times from admit/daily weight in charted data
+
+-- ==============================================================================
+-- 第五阶段：关联 ICU 主表，确保数据对齐 (CTE: wt1)
+-- ==============================================================================
 , wt1 as
 (
   select
@@ -81,28 +111,29 @@ with wt_stg as
       else
         coalesce(wt.endtime,
         LEAD(wt.starttime) OVER (partition by ie.stay_id order by wt.starttime),
-          -- we add a 2 hour "fuzziness" window
-        ie.outtime + interval '2' hour)
+          -- 加上两小时的宽容度 (fuzziness window)
+        ie.outtime + interval '2 hour')
       end as endtime
     , wt.weight
-  from `icustays` ie
+  from icustays ie
   left join wt_stg3 wt
     on ie.stay_id = wt.stay_id
 )
--- if the intime for the patient is < the first charted daily weight
--- then we will have a "gap" at the start of their stay
--- to prevent this, we look for these gaps and backfill the first weight
+
+-- ==============================================================================
+-- 第六阶段：填补开头的空白期 (Backfill) (CTE: wt_fix)
+-- 目标：如果病人在入 ICU 后过了好几个小时才第一次称重，我们要把这第一次体重复用到入 ICU 的那一刻
+-- ==============================================================================
 , wt_fix as
 (
   select ie.stay_id
-    -- we add a 2 hour "fuzziness" window
-    , ie.intime - interval '2' hour as starttime
+    -- 把 ICU 入科时间往前推两小时作为开始时间
+    , ie.intime - interval '2 hour' as starttime
     , wt.starttime as endtime
     , wt.weight
-  from `icustays` ie
+  from icustays ie
   inner join
-  -- the below subquery returns one row for each unique stay_id
-  -- the row contains: the first starttime and the corresponding weight
+  -- 找出每个患者最早的一次体重记录
   (
     select wt1.stay_id, wt1.starttime, wt1.weight
     from wt1
@@ -116,8 +147,13 @@ with wt_stg as
     and wt1.starttime = wt2.starttime
   ) wt
     on ie.stay_id = wt.stay_id
+    -- 只有当第一次称重时间晚于入ICU时间时，才需要填补前面的空白
     and ie.intime < wt.starttime
 )
+
+-- ==============================================================================
+-- 第七阶段：将正常记录和填补的空白期合并 (CTE: wt2)
+-- ==============================================================================
 , wt2 as
 (
   select
@@ -135,15 +171,20 @@ with wt_stg as
   from wt_fix
 )
 
+-- ==============================================================================
+-- 最终输出：求患者在 ICU 期间的平均体重
+-- ==============================================================================
 select
-  wt2.stay_id,ic.subject_id,ic.hadm_id, avg(wt2.weight) as weight
+  wt2.stay_id,
+  ic.subject_id,
+  ic.hadm_id, 
+  -- 取平均值并保留两位小数，让数据看起来更干净
+  ROUND(CAST(AVG(wt2.weight) AS NUMERIC), 2) as weight
 from wt2
-INNER JOIN `icustays` ic
-ON wt2.stay_id=ic.stay_id
-GROUP BY  wt2.stay_id,ic.subject_id,ic.hadm_id
-order by stay_id,subject_id,hadm_id;
+INNER JOIN icustays ic
+  ON wt2.stay_id = ic.stay_id
+GROUP BY wt2.stay_id, ic.subject_id, ic.hadm_id
+ORDER BY stay_id, subject_id, hadm_id;
 
-
-
-
-select count(*) from getWeight where weight is null;
+-- 验证：看看有多少病人的体重由于完全没有记录而变成了空值 (Null)
+-- select count(*) from getWeight where weight is null;

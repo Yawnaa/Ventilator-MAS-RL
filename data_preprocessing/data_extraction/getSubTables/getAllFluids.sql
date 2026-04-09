@@ -1,87 +1,81 @@
-select * from getUrineOutput;
+-- getAllFluids.sql (PostgreSQL version)
+-- 合并所有液体相关数据（尿液、血管活性药物、静脉输液、液体平衡），基于 MIMIC-IV 各表
+-- 得到的数据：subject_id, hadm_id, stay_id, charttime, urineoutput, rate_norepinephrine, rate_epinephrine, rate_phenylephrine, rate_vasopressin, rate_dopamine, vaso_total, iv_total, cum_fluid_balance
 
-DROP table IF EXISTS `getAllFluids`;
-CREATE table `getAllFluids` AS
-with 
-UrineOutputTable as ( SELECT subject_id, hadm_id, stay_id, charttime
+DROP TABLE IF EXISTS getallfluids;
+CREATE TABLE getallfluids AS
+WITH
+UrineOutputTable AS (SELECT subject_id, hadm_id, stay_id, charttime
          , urineoutput
-         , CAST(null AS DOUBLE) as rate_norepinephrine 
-         , CAST(null AS DOUBLE) as rate_epinephrine 
-		, CAST(null AS DOUBLE) as rate_phenylephrine 
-		, CAST(null AS DOUBLE) as rate_vasopressin 
-		, CAST(null AS DOUBLE) as rate_dopamine 
-		, CAST(null AS DOUBLE) as vaso_total
-		, CAST(null AS DOUBLE) as iv_total
-		, CAST(null AS DOUBLE) as cum_fluid_balance
-FROM `getUrineOutput`),
-VasopressorsTable as ( SELECT ic.subject_id, ic.hadm_id, ic.stay_id, starttime as charttime
-         , CAST(null AS DOUBLE) as urineoutput
-         , rate_norepinephrine 
-         , rate_epinephrine 
-		 , rate_phenylephrine 
-		 , rate_vasopressin 
-		, rate_dopamine 
+         , CAST(NULL AS DOUBLE PRECISION) AS rate_norepinephrine
+         , CAST(NULL AS DOUBLE PRECISION) AS rate_epinephrine
+		, CAST(NULL AS DOUBLE PRECISION) AS rate_phenylephrine
+		, CAST(NULL AS DOUBLE PRECISION) AS rate_vasopressin
+		, CAST(NULL AS DOUBLE PRECISION) AS rate_dopamine
+		, CAST(NULL AS DOUBLE PRECISION) AS vaso_total
+		, CAST(NULL AS DOUBLE PRECISION) AS iv_total
+		, CAST(NULL AS DOUBLE PRECISION) AS cum_fluid_balance
+FROM geturineoutput),
+VasopressorsTable AS (SELECT ic.subject_id, ic.hadm_id, ic.stay_id, starttime AS charttime
+         , CAST(NULL AS DOUBLE PRECISION) AS urineoutput
+         , rate_norepinephrine
+         , rate_epinephrine
+		 , rate_phenylephrine
+		 , rate_vasopressin
+		, rate_dopamine
 		, vaso_total
-	 , CAST(null AS DOUBLE) as iv_total
-	 , CAST(null AS DOUBLE) as cum_fluid_balance
-FROM `getVasopressors` vp INNER JOIN `icustays` ic
-ON vp.stay_id=ic.stay_id
+	 , CAST(NULL AS DOUBLE PRECISION) AS iv_total
+	 , CAST(NULL AS DOUBLE PRECISION) AS cum_fluid_balance
+FROM getvasopressors vp INNER JOIN icustays ic
+ON vp.stay_id = ic.stay_id
 ),
-IntravenousTable  as ( SELECT subject_id, hadm_id, stay_id, charttime
-         , CAST(null AS DOUBLE) as urineoutput
-         , CAST(null AS DOUBLE) as rate_norepinephrine 
-         , CAST(null AS DOUBLE) as rate_epinephrine 
-		 , CAST(null AS DOUBLE) as rate_phenylephrine 
-		 , CAST(null AS DOUBLE) as rate_vasopressin 
-		 , CAST(null AS DOUBLE) as rate_dopamine 
-		 , CAST(null AS DOUBLE) as vaso_total
-		 , amount as iv_total
-		 , CAST(null AS DOUBLE) as cum_fluid_balance
-FROM `getIntravenous`),
+IntravenousTable AS (SELECT subject_id, hadm_id, stay_id, charttime
+         , CAST(NULL AS DOUBLE PRECISION) AS urineoutput
+         , CAST(NULL AS DOUBLE PRECISION) AS rate_norepinephrine
+         , CAST(NULL AS DOUBLE PRECISION) AS rate_epinephrine
+		 , CAST(NULL AS DOUBLE PRECISION) AS rate_phenylephrine
+		 , CAST(NULL AS DOUBLE PRECISION) AS rate_vasopressin
+		 , CAST(NULL AS DOUBLE PRECISION) AS rate_dopamine
+		 , CAST(NULL AS DOUBLE PRECISION) AS vaso_total
+		 , amount AS iv_total
+		 , CAST(NULL AS DOUBLE PRECISION) AS cum_fluid_balance
+FROM getintravenous),
 
-CumFluidTable as ( SELECT subject_id, hadm_id, stay_id, charttime
-         , CAST(null AS DOUBLE) as urineoutput
-         , CAST(null AS DOUBLE) as rate_norepinephrine 
-         , CAST(null AS DOUBLE) as rate_epinephrine 
-		 , CAST(null AS DOUBLE) as rate_phenylephrine 
-		 , CAST(null AS DOUBLE) as rate_vasopressin 
-		 , CAST(null AS DOUBLE) as rate_dopamine 
-		 , CAST(null AS DOUBLE) as vaso_total
-		 , CAST(null AS DOUBLE) as iv_total
+CumFluidTable AS (SELECT subject_id, hadm_id, stay_id, charttime
+         , CAST(NULL AS DOUBLE PRECISION) AS urineoutput
+         , CAST(NULL AS DOUBLE PRECISION) AS rate_norepinephrine
+         , CAST(NULL AS DOUBLE PRECISION) AS rate_epinephrine
+		 , CAST(NULL AS DOUBLE PRECISION) AS rate_phenylephrine
+		 , CAST(NULL AS DOUBLE PRECISION) AS rate_vasopressin
+		 , CAST(NULL AS DOUBLE PRECISION) AS rate_dopamine
+		 , CAST(NULL AS DOUBLE PRECISION) AS vaso_total
+		 , CAST(NULL AS DOUBLE PRECISION) AS iv_total
 		 , cum_fluid_balance
-FROM `getCumFluid`)
-
-
--- select * from CumFluidTable union ;
-
+FROM getcumfluid)
 
 (SELECT subject_id, hadm_id, stay_id, charttime,
 	 -- urine output
-       avg(urineoutput) as urineoutput
+       AVG(urineoutput) AS urineoutput
 	 -- vasopressors
-	 , avg(rate_norepinephrine) as rate_norepinephrine 
-     , avg(rate_epinephrine) as rate_epinephrine 
-	 , avg(rate_phenylephrine) as rate_phenylephrine 
-     , avg(rate_vasopressin) as rate_vasopressin 
-	 , avg(rate_dopamine) as rate_dopamine 
-     , avg(vaso_total) as vaso_total
+	 , AVG(rate_norepinephrine) AS rate_norepinephrine
+     , AVG(rate_epinephrine) AS rate_epinephrine
+	 , AVG(rate_phenylephrine) AS rate_phenylephrine
+     , AVG(rate_vasopressin) AS rate_vasopressin
+	 , AVG(rate_dopamine) AS rate_dopamine
+     , AVG(vaso_total) AS vaso_total
 	 -- intravenous fluids
-	 , avg(iv_total) as iv_total
+	 , AVG(iv_total) AS iv_total
 	 -- cumulated fluid balance
-	 , avg(cum_fluid_balance) as cum_fluid_balance
-FROM 
-( select * from UrineOutputTable 
+	 , AVG(cum_fluid_balance) AS cum_fluid_balance
+FROM
+(SELECT * FROM UrineOutputTable
 UNION ALL
-  select * from  VasopressorsTable 
+  SELECT * FROM VasopressorsTable
 UNION ALL
- select * from  IntravenousTable 
+ SELECT * FROM IntravenousTable
 UNION ALL
-  select * from CumFluidTable 
-) as allTables
+  SELECT * FROM CumFluidTable
+) AS allTables
 
-group by subject_id, hadm_id, stay_id, charttime	
-order by subject_id, hadm_id, stay_id, charttime);
-
-
-
-select * from getAllFluids ;
+GROUP BY subject_id, hadm_id, stay_id, charttime
+ORDER BY subject_id, hadm_id, stay_id, charttime);

@@ -1,19 +1,20 @@
--- Initial code was retrieved https://github.com/arnepeine/ventai/blob/main/getSOFA_withventparams.sql.
--- Modifications were made when needed for performance improvement, readability or simplification.
--- Code was modified to be campatible with MIMIC IV.
+-- getSOFA.sql (PostgreSQL version)
+-- 计算 SOFA (Sequential Organ Failure Assessment) 分数，基于 MIMIC-IV 数据
+-- 初始代码来自 https://github.com/arnepeine/ventai/blob/main/getSOFA_withventparams.sql
+-- 进行了修改以兼容 MIMIC-IV，提高性能、可读性或简化
 
-DROP table IF EXISTS `SOFA`;
-CREATE table `SOFA` AS
+DROP TABLE IF EXISTS sofa;
+CREATE TABLE sofa AS
 
-with scorecomp as(
+WITH scorecomp AS (
 
-SELECT stay_id,subject_id , hadm_id, start_time
+SELECT stay_id, subject_id, hadm_id, start_time
            -- respiration
-       , PaO2FiO2ratio , mechvent
+       , pao2fio2ratio, mechvent
 	   -- nervous system
        , gcs
 	   -- cardiovascular system
-	   , meanbp ,  rate_dopamine 
+	   , meanbp, rate_dopamine
 	   , rate_norepinephrine, rate_epinephrine
 	   -- liver
        , bilirubin
@@ -22,82 +23,81 @@ SELECT stay_id,subject_id , hadm_id, start_time
 	   -- kidneys (renal)
 	   , creatinine, urineoutput
 
-FROM `OverallTable2`),
+FROM overalltable2),
 
-scorecalc as
-(
-SELECT stay_id, subject_id, hadm_id, start_time , PaO2FiO2ratio , mechvent , gcs, meanbp , rate_dopamine , rate_norepinephrine, rate_epinephrine
-       , bilirubin , platelet , creatinine, urineoutput 
-	   , case
-      when PaO2FiO2ratio < 100 and mechvent=1 then 4
-      when PaO2FiO2ratio < 200 and mechvent=1 then 3
-      when PaO2FiO2ratio < 300                then 2
-      when PaO2FiO2ratio < 400                then 1
-      when PaO2FiO2ratio is null then null
-      else 0
-    end as respiration	
+scorecalc AS (
+SELECT stay_id, subject_id, hadm_id, start_time, pao2fio2ratio, mechvent, gcs, meanbp, rate_dopamine, rate_norepinephrine, rate_epinephrine
+       , bilirubin, platelet, creatinine, urineoutput
+	   , CASE
+      WHEN pao2fio2ratio < 100 AND mechvent = 1 THEN 4
+      WHEN pao2fio2ratio < 200 AND mechvent = 1 THEN 3
+      WHEN pao2fio2ratio < 300 THEN 2
+      WHEN pao2fio2ratio < 400 THEN 1
+      WHEN pao2fio2ratio IS NULL THEN NULL
+      ELSE 0
+    END AS respiration
 	  -- Neurological failure (GCS)
-  , case
-      when (gcs >= 13 and gcs <= 14) then 1
-      when (gcs >= 10 and gcs <= 12) then 2
-      when (gcs >=  6 and gcs <=  9) then 3
-      when  gcs <   6 then 4
-      when  gcs is null then null
-  else 0 end
-    as cns	
+  , CASE
+      WHEN (gcs >= 13 AND gcs <= 14) THEN 1
+      WHEN (gcs >= 10 AND gcs <= 12) THEN 2
+      WHEN (gcs >= 6 AND gcs <= 9) THEN 3
+      WHEN gcs < 6 THEN 4
+      WHEN gcs IS NULL THEN NULL
+  ELSE 0 END
+    AS cns
   -- Cardiovascular
-  , case
-      when rate_dopamine > 15 or rate_epinephrine >  0.1 or rate_norepinephrine >  0.1 then 4
-      when rate_dopamine >  5 or rate_epinephrine <= 0.1 or rate_norepinephrine <= 0.1 then 3
-      when rate_dopamine <=  5 /*or rate_dobutamine > 0*/ then 2
-      when MeanBP < 70 then 1
-      when coalesce(MeanBP, rate_dopamine, /*rate_dobutamine,*/ rate_epinephrine, rate_norepinephrine) is null then null
-      else 0
-    end as cardiovascular	
+  , CASE
+      WHEN rate_dopamine > 15 OR rate_epinephrine > 0.1 OR rate_norepinephrine > 0.1 THEN 4
+      WHEN rate_dopamine > 5 OR rate_epinephrine <= 0.1 OR rate_norepinephrine <= 0.1 THEN 3
+      WHEN rate_dopamine <= 5 /*or rate_dobutamine > 0*/ THEN 2
+      WHEN meanbp < 70 THEN 1
+      WHEN COALESCE(meanbp, rate_dopamine, /*rate_dobutamine,*/ rate_epinephrine, rate_norepinephrine) IS NULL THEN NULL
+      ELSE 0
+    END AS cardiovascular
 	-- Liver
-  , case
+  , CASE
       -- Bilirubin checks in mg/dL
-        when Bilirubin >= 12.0 then 4
-        when Bilirubin >= 6.0  then 3
-        when Bilirubin >= 2.0  then 2
-        when Bilirubin >= 1.2  then 1
-        when Bilirubin is null then null
-        else 0
-      end as liver	  
+        WHEN bilirubin >= 12.0 THEN 4
+        WHEN bilirubin >= 6.0 THEN 3
+        WHEN bilirubin >= 2.0 THEN 2
+        WHEN bilirubin >= 1.2 THEN 1
+        WHEN bilirubin IS NULL THEN NULL
+        ELSE 0
+      END AS liver
 	  -- Coagulation
-  , case
-      when platelet < 20  then 4
-      when platelet < 50  then 3
-      when platelet < 100 then 2
-      when platelet < 150 then 1
-      when platelet is null then null
-      else 0
-    end as coagulation
-	
+  , CASE
+      WHEN platelet < 20 THEN 4
+      WHEN platelet < 50 THEN 3
+      WHEN platelet < 100 THEN 2
+      WHEN platelet < 150 THEN 1
+      WHEN platelet IS NULL THEN NULL
+      ELSE 0
+    END AS coagulation
+
 	-- Renal failure - high creatinine or low urine output
-  , case
-    when (Creatinine >= 5.0) then 4
-    when  UrineOutput < 200 then 4
-    when (Creatinine >= 3.5 and Creatinine < 5.0) then 3
-    when  UrineOutput < 500 then 3
-    when (Creatinine >= 2.0 and Creatinine < 3.5) then 2
-    when (Creatinine >= 1.2 and Creatinine < 2.0) then 1
-    when coalesce(UrineOutput, Creatinine) is null then null
-  else 0 end
-    as renal
-	
-	from scorecomp)
-	
-SELECT stay_id, subject_id , hadm_id, start_time
+  , CASE
+    WHEN (creatinine >= 5.0) THEN 4
+    WHEN urineoutput < 200 THEN 4
+    WHEN (creatinine >= 3.5 AND creatinine < 5.0) THEN 3
+    WHEN urineoutput < 500 THEN 3
+    WHEN (creatinine >= 2.0 AND creatinine < 3.5) THEN 2
+    WHEN (creatinine >= 1.2 AND creatinine < 2.0) THEN 1
+    WHEN COALESCE(urineoutput, creatinine) IS NULL THEN NULL
+  ELSE 0 END
+    AS renal
+
+	FROM scorecomp)
+
+SELECT stay_id, subject_id, hadm_id, start_time
 	   -- parameters from scorecomp
-       , PaO2FiO2ratio , mechvent , gcs, meanbp , rate_dopamine , rate_norepinephrine, rate_epinephrine
-       , bilirubin , platelet , creatinine, urineoutput
+       , pao2fio2ratio, mechvent, gcs, meanbp, rate_dopamine, rate_norepinephrine, rate_epinephrine
+       , bilirubin, platelet, creatinine, urineoutput
 	   -- parameters from scorecalc, contains separate scores to estimate the final SOFA score
-	   , respiration , cns , cardiovascular , liver , coagulation , renal
+	   , respiration, cns, cardiovascular, liver, coagulation, renal
 	   -- overall SOFA score calculation
-       , coalesce(respiration,0) + coalesce(cns,0) 
-       + coalesce(cardiovascular,0) + coalesce(liver,0) 
-       + coalesce(coagulation,0) + coalesce(renal,0) as SOFA
+       , COALESCE(respiration, 0) + COALESCE(cns, 0)
+       + COALESCE(cardiovascular, 0) + COALESCE(liver, 0)
+       + COALESCE(coagulation, 0) + COALESCE(renal, 0) AS sofa
 	   
 FROM scorecalc
 

@@ -1,53 +1,54 @@
--- Initial code was retrieved https://github.com/arnepeine/ventai/blob/main/getSIRS_withventparams.sql.
--- Modifications were made when needed for performance improvement, readability or simplification.
--- Code was modified to be campatible with MIMIC IV.
+-- getSIRS.sql (PostgreSQL version)
+-- 计算 SIRS (Systemic Inflammatory Response Syndrome) 分数，基于 MIMIC-IV 数据
+-- 初始代码来自 https://github.com/arnepeine/ventai/blob/main/getSIRS_withventparams.sql
+-- 进行了修改以兼容 MIMIC-IV，提高性能、可读性或简化
 
--- DROP table IF EXISTS `SIRS`;
--- CREATE table `SIRS` AS
+-- DROP TABLE IF EXISTS sirs;
+-- CREATE TABLE sirs AS
 
-with scorecomp as(
+WITH scorecomp AS (
 
-SELECT stay_id, subject_id , hadm_id,  start_time, tempC , heartrate , resprate , paco2 , wbc , bands
-FROM `OverallTable2`),
+SELECT stay_id, subject_id, hadm_id, start_time, tempc, heartrate, resprate, paco2, wbc, bands
+FROM overalltable2),
 
-scorecalc as
-( SELECT stay_id, subject_id , hadm_id, start_time, tempC , heartrate , resprate , paco2 , wbc , bands
- , case
-      when Tempc < 36.0 then 1
-      when Tempc > 38.0 then 1
-      when Tempc is null then null
-      else 0
-    end as Temp_score
-, case
-      when HeartRate > 90.0  then 1
-      when HeartRate is null then null
-      else 0
-    end as HeartRate_score
-, case
-      when RespRate > 20.0  then 1
-      when PaCO2 < 32.0  then 1
-      when coalesce(RespRate, PaCO2) is null then null
-      else 0
-    end as Resp_score
-, case
-      when WBC <  4.0  then 1
-      when WBC > 12.0  then 1
-      when Bands > 10 then 1 -- > 10% immature neurophils (band forms)
-      when coalesce(WBC, Bands) is null then null
-      else 0
-    end as WBC_score
- 
- from scorecomp
+scorecalc AS (
+SELECT stay_id, subject_id, hadm_id, start_time, tempc, heartrate, resprate, paco2, wbc, bands
+, CASE
+    WHEN tempc < 36.0 THEN 1
+    WHEN tempc > 38.0 THEN 1
+    WHEN tempc IS NULL THEN NULL
+    ELSE 0
+  END AS temp_score
+, CASE
+    WHEN heartrate > 90.0 THEN 1
+    WHEN heartrate IS NULL THEN NULL
+    ELSE 0
+  END AS heartrate_score
+, CASE
+    WHEN resprate > 20.0 THEN 1
+    WHEN paco2 < 32.0 THEN 1
+    WHEN COALESCE(resprate, paco2) IS NULL THEN NULL
+    ELSE 0
+  END AS resp_score
+, CASE
+    WHEN wbc < 4.0 THEN 1
+    WHEN wbc > 12.0 THEN 1
+    WHEN bands > 10 THEN 1 -- > 10% immature neurophils (band forms)
+    WHEN COALESCE(wbc, bands) IS NULL THEN NULL
+    ELSE 0
+  END AS wbc_score
+
+FROM scorecomp
 )
 
-select
-  stay_id, subject_id , hadm_id, start_time
+SELECT
+  stay_id, subject_id, hadm_id, start_time
   -- Combine all the scores to get SIRS
   -- Impute 0 if the score is missing
-  , coalesce(Temp_score,0)
-  + coalesce(HeartRate_score,0)
-  + coalesce(Resp_score,0)
-  + coalesce(WBC_score,0)
-    as SIRS
-  , Temp_score, HeartRate_score, Resp_score, WBC_score
-from scorecalc;
+  , COALESCE(temp_score, 0)
+  + COALESCE(heartrate_score, 0)
+  + COALESCE(resp_score, 0)
+  + COALESCE(wbc_score, 0)
+    AS sirs
+  , temp_score, heartrate_score, resp_score, wbc_score
+FROM scorecalc;

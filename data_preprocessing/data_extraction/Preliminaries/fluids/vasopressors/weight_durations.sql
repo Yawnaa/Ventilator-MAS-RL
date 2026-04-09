@@ -1,141 +1,127 @@
--- Initial code was retrieved from https://github.com/MIT-LCP/mimic-code/blob/1754d925ba4e96e376dc29858e8df301fcb69a20/concepts/durations/weight-durations.sql
--- Modifications were made when needed for performance improvement, readability or simplification.
+-- weight_durations.sql (PostgreSQL version)
+-- 提取ICU患者体重数据的时间区间，基于 MIMIC-IV chartevents 和 icustays 表
+-- 得到的数据：stay_id, starttime, endtime, weight (kg)
+-- 处理入院体重和每日体重，填充时间间隔
 
--- This query extracts weights for adult ICU patients with start/stop times
--- if an admission weight is given, then this is assigned from intime to outtime
+DROP TABLE IF EXISTS weightdurations;
+CREATE TABLE weightdurations AS
 
-DROP table IF EXISTS `weightdurations`;
-CREATE table `weightdurations`as
-
-
-
-
-with wt_stg as
-(
+WITH wt_stg AS (
     SELECT
         c.stay_id, c.charttime
-      , case when c.itemid in (226512,226531) then 'admit'
-          else 'daily' end as weight_type
-      , case when c.itemid in (226531) then c.valuenum * 0.453592
-       else c.valuenum 
-       end as weight
-    FROM `chartevents` c
+      , CASE WHEN c.itemid IN (226512,226531) THEN 'admit'
+          ELSE 'daily' END AS weight_type
+      , CASE WHEN c.itemid IN (226531) THEN c.valuenum * 0.453592
+       ELSE c.valuenum
+       END AS weight
+    FROM chartevents c
     WHERE c.valuenum IS NOT NULL
-      AND c.itemid in
-      (
+      AND c.itemid IN (
          762,226512 -- Admit Wt
          ,226531 -- Admit Wt lbs
         ,763,224639 -- Daily Weight
       )
       AND c.valuenum != 0
-      -- exclude rows marked as error
-      --  AND c.warning != 1
 )
 -- assign ascending row number
-, wt_stg1 as
-(
-  select
+, wt_stg1 AS (
+  SELECT
       stay_id
     , charttime
     , weight_type
     , weight
-    , ROW_NUMBER() OVER (partition by stay_id, weight_type order by charttime) as rn
-  from wt_stg
+    , ROW_NUMBER() OVER (PARTITION BY stay_id, weight_type ORDER BY charttime) AS rn
+  FROM wt_stg
 )
 -- change charttime to starttime - for admit weight, we use ICU admission time
-, wt_stg2 as
-(
-  select
+, wt_stg2 AS (
+  SELECT
       wt_stg1.stay_id
     , ie.intime, ie.outtime
-    , case when wt_stg1.weight_type = 'admit' and wt_stg1.rn = 1
-        then ie.intime - interval '2' hour
-      else wt_stg1.charttime end as starttime
+    , CASE WHEN wt_stg1.weight_type = 'admit' AND wt_stg1.rn = 1
+        THEN ie.intime - INTERVAL '2' HOUR
+      ELSE wt_stg1.charttime END AS starttime
     , wt_stg1.weight
-  from `icustays` ie
-  inner join wt_stg1
-    on ie.stay_id = wt_stg1.stay_id
-  where not (weight_type = 'admit' and rn = 1)
+  FROM icustays ie
+  INNER JOIN wt_stg1
+    ON ie.stay_id = wt_stg1.stay_id
+  WHERE NOT (weight_type = 'admit' AND rn = 1)
 )
-, wt_stg3 as
-(
-  select
+, wt_stg3 AS (
+  SELECT
     stay_id
     , starttime
-    , coalesce(
+    , COALESCE(
         LEAD(starttime) OVER (PARTITION BY stay_id ORDER BY starttime),
-        outtime + interval '2' hour
-      ) as endtime
+        outtime + INTERVAL '2' HOUR
+      ) AS endtime
     , weight
-  from wt_stg2
+  FROM wt_stg2
 )
 -- this table is the start/stop times from admit/daily weight in charted data
-, wt1 as
-(
-  select
+, wt1 AS (
+  SELECT
       ie.stay_id
     , wt.starttime
-    , case when wt.stay_id is null then null
-      else
-        coalesce(wt.endtime,
-        LEAD(wt.starttime) OVER (partition by ie.stay_id order by wt.starttime),
+    , CASE WHEN wt.stay_id IS NULL THEN NULL
+      ELSE
+        COALESCE(wt.endtime,
+        LEAD(wt.starttime) OVER (PARTITION BY ie.stay_id ORDER BY wt.starttime),
           -- we add a 2 hour "fuzziness" window
-        ie.outtime + interval '2' hour)
-      end as endtime
+        ie.outtime + INTERVAL '2' HOUR)
+      END AS endtime
     , wt.weight
-  from `icustays` ie
-  left join wt_stg3 wt
-    on ie.stay_id = wt.stay_id
+  FROM icustays ie
+  LEFT JOIN wt_stg3 wt
+    ON ie.stay_id = wt.stay_id
 )
 -- if the intime for the patient is < the first charted daily weight
 -- then we will have a "gap" at the start of their stay
 -- to prevent this, we look for these gaps and backfill the first weight
-, wt_fix as
-(
-  select ie.stay_id
+, wt_fix AS (
+  SELECT ie.stay_id
     -- we add a 2 hour "fuzziness" window
-    , ie.intime - interval '2' hour as starttime
-    , wt.starttime as endtime
+    , ie.intime - INTERVAL '2' HOUR AS starttime
+    , wt.starttime AS endtime
     , wt.weight
-  from `icustays` ie
-  inner join
+  FROM icustays ie
+  INNER JOIN
   -- the below subquery returns one row for each unique stay_id
   -- the row contains: the first starttime and the corresponding weight
   (
-    select wt1.stay_id, wt1.starttime, wt1.weight
-    from wt1
-    inner join
+    SELECT wt1.stay_id, wt1.starttime, wt1.weight
+    FROM wt1
+    INNER JOIN
       (
-        select stay_id, min(Starttime) as starttime
-        from wt1
-        group by stay_id
+        SELECT stay_id, MIN(starttime) AS starttime
+        FROM wt1
+        GROUP BY stay_id
       ) wt2
-    on wt1.stay_id = wt2.stay_id
-    and wt1.starttime = wt2.starttime
+    ON wt1.stay_id = wt2.stay_id
+    AND wt1.starttime = wt2.starttime
   ) wt
-    on ie.stay_id = wt.stay_id
-    and ie.intime < wt.starttime
+    ON ie.stay_id = wt.stay_id
+    AND ie.intime < wt.starttime
 )
-, wt2 as
-(
-  select
+, wt2 AS (
+  SELECT
       wt1.stay_id
     , wt1.starttime
     , wt1.endtime
     , wt1.weight
-  from wt1
+  FROM wt1
   UNION ALL
   SELECT
       wt_fix.stay_id
     , wt_fix.starttime
     , wt_fix.endtime
     , wt_fix.weight
-  from wt_fix
+  FROM wt_fix
 )
 
-select
+SELECT
   wt2.stay_id, wt2.starttime, wt2.endtime, wt2.weight
-from wt2
-order by stay_id, starttime, endtime;
+FROM wt2
+ORDER BY stay_id, starttime, endtime;
 
 
