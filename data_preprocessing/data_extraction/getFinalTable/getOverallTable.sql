@@ -1,10 +1,11 @@
---  Initial code for the lab portion was retrieved from https://github.com/arnepeine/ventai/blob/main/overalltable_Lab_withventparams.sql
---  Initial code for the rest was retrieved from https://github.com/arnepeine/ventai/blob/main/overalltable_withoutLab_withventparams.sql
---  Modifications were made when needed for performance improvement, readability or simplification.
--- Code was modified to be campatible with MIMIC IV.
+-- getOverallTable.sql (PostgreSQL version)
+-- 合并所有临床数据（生命体征、实验室值、液体、通气参数）创建综合表，基于 MIMIC-IV
+-- 初始代码来自 https://github.com/arnepeine/ventai/blob/main/overalltable_Lab_withventparams.sql
+-- 和 https://github.com/arnepeine/ventai/blob/main/overalltable_withoutLab_withventparams.sql
+-- 进行了修改以兼容 MIMIC-IV，提高性能、可读性或简化
 
-DROP table IF EXISTS `OverallTable`;
-CREATE table `OverallTable` AS
+DROP TABLE IF EXISTS overalltable;
+CREATE TABLE overalltable AS
 
 SELECT merged.subject_id, hadm_id, stay_id, charttime 
      -- vital signs
@@ -68,14 +69,14 @@ FROM
 (
 SELECT lab.subject_id, lab.hadm_id, lab.stay_id, lab.charttime
 	--  vital signs
-	 , CAST(null AS DOUBLE) as gcs
-     , CAST(null AS DOUBLE) as heartrate
-     , CAST(null AS DOUBLE) as sysbp
-     , CAST(null AS DOUBLE) as diasbp
-     , CAST(null AS DOUBLE) as meanbp
-     ,  CAST(null AS DOUBLE) as resprate
-     , CAST(null AS DOUBLE) as tempc
-     , CAST(null AS DOUBLE) as spo2 
+	 , CAST(NULL AS DOUBLE PRECISION) as gcs
+     , CAST(NULL AS DOUBLE PRECISION) as heartrate
+     , CAST(NULL AS DOUBLE PRECISION) as sysbp
+     , CAST(NULL AS DOUBLE PRECISION) as diasbp
+     , CAST(NULL AS DOUBLE PRECISION) as meanbp
+     , CAST(NULL AS DOUBLE PRECISION) as resprate
+     , CAST(NULL AS DOUBLE PRECISION) as tempc
+     , CAST(NULL AS DOUBLE PRECISION) as spo2 
 	--  lab values 
 	 , POTASSIUM 
      , SODIUM 
@@ -105,65 +106,65 @@ SELECT lab.subject_id, lab.hadm_id, lab.stay_id, lab.charttime
      , SGPT 
      , IONIZEDCALCIUM
 	--  fluids
-	 , CAST(null AS DOUBLE) as urineoutput, CAST(null AS DOUBLE) as iv_total, CAST(null AS DOUBLE) as cum_fluid_balance
-	 , CAST(null AS DOUBLE) as rate_norepinephrine , CAST(null AS DOUBLE) as rate_epinephrine 
-	 , CAST(null AS DOUBLE) as rate_phenylephrine , CAST(null AS DOUBLE) as rate_vasopressin 
-	 , CAST(null AS DOUBLE) as rate_dopamine , CAST(null AS DOUBLE) as vaso_total
+	 , CAST(NULL AS DOUBLE PRECISION) as urineoutput, CAST(NULL AS DOUBLE PRECISION) as iv_total, CAST(NULL AS DOUBLE PRECISION) as cum_fluid_balance
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_norepinephrine , CAST(NULL AS DOUBLE PRECISION) as rate_epinephrine 
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_phenylephrine , CAST(NULL AS DOUBLE PRECISION) as rate_vasopressin 
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_dopamine , CAST(NULL AS DOUBLE PRECISION) as vaso_total
 	--  ventilation parameters
-	 , CAST(null AS DECIMAL) as MechVent , CAST(null AS DOUBLE) as FiO2
-	 , CAST(null AS DOUBLE) as PEEP, CAST(null AS DOUBLE) as tidal_volume, CAST(null AS DOUBLE) as plateau_pressure
-FROM `getAllLabvalues` lab 
+	 , CAST(NULL AS DECIMAL) as MechVent , CAST(NULL AS DOUBLE PRECISION) as FiO2
+	 , CAST(NULL AS DOUBLE PRECISION) as PEEP, CAST(NULL AS DOUBLE PRECISION) as tidal_volume, CAST(NULL AS DOUBLE PRECISION) as plateau_pressure
+FROM getalllabvalues lab 
 UNION ALL
 SELECT subject_id, hadm_id, stay_id, charttime
 	 --  vital signs
 	 , gcs, heartrate, sysbp, diasbp, meanbp, resprate, tempc, spo2 
 	 --  lab values
-	 , CAST(null AS DOUBLE) as POTASSIUM 
-     , CAST(null AS DOUBLE) as SODIUM 
-     , CAST(null AS DOUBLE) as CHLORIDE 
-     , CAST(null AS DOUBLE) as GLUCOSE 
-     , CAST(null AS DOUBLE) as BUN 
-     , CAST(null AS DOUBLE) as CREATININE 
-     , CAST(null AS DOUBLE) as MAGNESIUM 
-     , CAST(null AS DOUBLE) as IONIZEDCALCIUM 
-     , CAST(null AS DOUBLE) as CALCIUM 
-     , CAST(null AS DOUBLE) as CARBONDIOXIDE 
-	 , CAST(null AS DOUBLE) as SGOT 
-     , CAST(null AS DOUBLE) as SGPT 
-     , CAST(null AS DOUBLE) as BILIRUBIN 
-     , CAST(null AS DOUBLE) as ALBUMIN 
-     , CAST(null AS DOUBLE) as HEMOGLOBIN 
-     , CAST(null AS DOUBLE) as WBC 
-     , CAST(null AS DOUBLE) as PLATELET 
-     , CAST(null AS DOUBLE) as PTT 
-     , CAST(null AS DOUBLE) as PT 
-     , CAST(null AS DOUBLE) as INR 
-     , CAST(null AS DOUBLE) as PH 
-     , CAST(null AS DOUBLE) as PaO2 
-     , CAST(null AS DOUBLE) as PaCO2
-     , CAST(null AS DOUBLE) as BASE_EXCESS 
-     , CAST(null AS DOUBLE) as BICARBONATE 
-     , CAST(null AS DOUBLE) as LACTATE 
-     , CAST(null AS DOUBLE) as BANDS
+	 , CAST(NULL AS DOUBLE PRECISION) as POTASSIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as SODIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as CHLORIDE 
+     , CAST(NULL AS DOUBLE PRECISION) as GLUCOSE 
+     , CAST(NULL AS DOUBLE PRECISION) as BUN 
+     , CAST(NULL AS DOUBLE PRECISION) as CREATININE 
+     , CAST(NULL AS DOUBLE PRECISION) as MAGNESIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as IONIZEDCALCIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as CALCIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as CARBONDIOXIDE 
+	 , CAST(NULL AS DOUBLE PRECISION) as SGOT 
+     , CAST(NULL AS DOUBLE PRECISION) as SGPT 
+     , CAST(NULL AS DOUBLE PRECISION) as BILIRUBIN 
+     , CAST(NULL AS DOUBLE PRECISION) as ALBUMIN 
+     , CAST(NULL AS DOUBLE PRECISION) as HEMOGLOBIN 
+     , CAST(NULL AS DOUBLE PRECISION) as WBC 
+     , CAST(NULL AS DOUBLE PRECISION) as PLATELET 
+     , CAST(NULL AS DOUBLE PRECISION) as PTT 
+     , CAST(NULL AS DOUBLE PRECISION) as PT 
+     , CAST(NULL AS DOUBLE PRECISION) as INR 
+     , CAST(NULL AS DOUBLE PRECISION) as PH 
+     , CAST(NULL AS DOUBLE PRECISION) as PaO2 
+     , CAST(NULL AS DOUBLE PRECISION) as PaCO2
+     , CAST(NULL AS DOUBLE PRECISION) as BASE_EXCESS 
+     , CAST(NULL AS DOUBLE PRECISION) as BICARBONATE 
+     , CAST(NULL AS DOUBLE PRECISION) as LACTATE 
+     , CAST(NULL AS DOUBLE PRECISION) as BANDS
 	--  fluids
-	 , CAST(null AS DOUBLE) as urineoutput
-     , CAST(null AS DOUBLE) as iv_total
-     , CAST(null AS DOUBLE) as cum_fluid_balance
-	 , CAST(null AS DOUBLE) as rate_norepinephrine , CAST(null AS DOUBLE) as rate_epinephrine 
-	 , CAST(null AS DOUBLE) as rate_phenylephrine , CAST(null AS DOUBLE) as rate_vasopressin 
-	 , CAST(null AS DOUBLE) as rate_dopamine , CAST(null AS DOUBLE) as vaso_total
+	 , CAST(NULL AS DOUBLE PRECISION) as urineoutput
+     , CAST(NULL AS DOUBLE PRECISION) as iv_total
+     , CAST(NULL AS DOUBLE PRECISION) as cum_fluid_balance
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_norepinephrine , CAST(NULL AS DOUBLE PRECISION) as rate_epinephrine 
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_phenylephrine , CAST(NULL AS DOUBLE PRECISION) as rate_vasopressin 
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_dopamine , CAST(NULL AS DOUBLE PRECISION) as vaso_total
 	-- ventilation parameters
-	 , CAST(null AS DECIMAL) as MechVent , CAST(null AS DOUBLE) as FiO2
-	 , CAST(null AS DOUBLE) as PEEP, CAST(null AS DOUBLE) as tidal_volume, CAST(null AS DOUBLE) as plateau_pressure		
-FROM `getAllVitalSigns` vit
+	 , CAST(NULL AS DECIMAL) as MechVent , CAST(NULL AS DOUBLE PRECISION) as FiO2
+	 , CAST(NULL AS DOUBLE PRECISION) as PEEP, CAST(NULL AS DOUBLE PRECISION) as tidal_volume, CAST(NULL AS DOUBLE PRECISION) as plateau_pressure		
+FROM getallvitalsigns vit
 UNION ALL
 SELECT subject_id, hadm_id, stay_id, charttime
 	--  vital signs
 	 , null as gcs, null as heartrate, null as sysbp, null as diasbp, null as meanbp,  null as resprate, null as tempc, null as spo2 
      -- lab values
-	 , CAST(null AS DOUBLE) as POTASSIUM , CAST(null AS DOUBLE) as SODIUM , CAST(null AS DOUBLE) as CHLORIDE , CAST(null AS DOUBLE) as GLUCOSE , CAST(null AS DOUBLE) as BUN , CAST(null AS DOUBLE) as CREATININE , CAST(null AS DOUBLE) as MAGNESIUM , CAST(null AS DOUBLE) as IONIZEDCALCIUM , CAST(null AS DOUBLE) as CALCIUM , CAST(null AS DOUBLE) as CARBONDIOXIDE 
-	 , CAST(null AS DOUBLE) as SGOT , CAST(null AS DOUBLE) as SGPT , CAST(null AS DOUBLE) as BILIRUBIN , CAST(null AS DOUBLE) as ALBUMIN , CAST(null AS DOUBLE) as HEMOGLOBIN , CAST(null AS DOUBLE) as WBC , CAST(null AS DOUBLE) as PLATELET , CAST(null AS DOUBLE) as PTT , CAST(null AS DOUBLE) as PT , CAST(null AS DOUBLE) as INR , CAST(null AS DOUBLE) as PH , CAST(null AS DOUBLE) as PaO2 , CAST(null AS DOUBLE) as PaCO2
-     , CAST(null AS DOUBLE) as BASE_EXCESS , CAST(null AS DOUBLE) as BICARBONATE , CAST(null AS DOUBLE) as LACTATE , CAST(null AS DOUBLE) as BANDS
+	 , CAST(NULL AS DOUBLE PRECISION) as POTASSIUM , CAST(NULL AS DOUBLE PRECISION) as SODIUM , CAST(NULL AS DOUBLE PRECISION) as CHLORIDE , CAST(NULL AS DOUBLE PRECISION) as GLUCOSE , CAST(NULL AS DOUBLE PRECISION) as BUN , CAST(NULL AS DOUBLE PRECISION) as CREATININE , CAST(NULL AS DOUBLE PRECISION) as MAGNESIUM , CAST(NULL AS DOUBLE PRECISION) as IONIZEDCALCIUM , CAST(NULL AS DOUBLE PRECISION) as CALCIUM , CAST(NULL AS DOUBLE PRECISION) as CARBONDIOXIDE 
+	 , CAST(NULL AS DOUBLE PRECISION) as SGOT , CAST(NULL AS DOUBLE PRECISION) as SGPT , CAST(NULL AS DOUBLE PRECISION) as BILIRUBIN , CAST(NULL AS DOUBLE PRECISION) as ALBUMIN , CAST(NULL AS DOUBLE PRECISION) as HEMOGLOBIN , CAST(NULL AS DOUBLE PRECISION) as WBC , CAST(NULL AS DOUBLE PRECISION) as PLATELET , CAST(NULL AS DOUBLE PRECISION) as PTT , CAST(NULL AS DOUBLE PRECISION) as PT , CAST(NULL AS DOUBLE PRECISION) as INR , CAST(NULL AS DOUBLE PRECISION) as PH , CAST(NULL AS DOUBLE PRECISION) as PaO2 , CAST(NULL AS DOUBLE PRECISION) as PaCO2
+     , CAST(NULL AS DOUBLE PRECISION) as BASE_EXCESS , CAST(NULL AS DOUBLE PRECISION) as BICARBONATE , CAST(NULL AS DOUBLE PRECISION) as LACTATE , CAST(NULL AS DOUBLE PRECISION) as BANDS
 	--  fluids
 	 , urineoutput
      , iv_total
@@ -175,68 +176,68 @@ SELECT subject_id, hadm_id, stay_id, charttime
      , rate_dopamine 
      , vaso_total
 	-- ventilation parameters
-	 , CAST(null AS DECIMAL) as MechVent 
-     , CAST(null AS DOUBLE) as FiO2
-	 , CAST(null AS DOUBLE) as PEEP
-     , CAST(null AS DOUBLE) as tidal_volume
-     , CAST(null AS DOUBLE) as plateau_pressure
-FROM `getAllFluids` fl	
+	 , CAST(NULL AS DECIMAL) as MechVent 
+     , CAST(NULL AS DOUBLE PRECISION) as FiO2
+	 , CAST(NULL AS DOUBLE PRECISION) as PEEP
+     , CAST(NULL AS DOUBLE PRECISION) as tidal_volume
+     , CAST(NULL AS DOUBLE PRECISION) as plateau_pressure
+FROM getallfluids fl
 UNION ALL
 SELECT subject_id, hadm_id, stay_id, charttime
 	 --  vital signs
-	 , null as gcs
-     , null as heartrate
-     , null as sysbp
-     , null as diasbp
-     , null as meanbp
-     , null as resprate
-     , null as tempc
-     , null as spo2 
+	 , NULL as gcs
+     , NULL as heartrate
+     , NULL as sysbp
+     , NULL as diasbp
+     , NULL as meanbp
+     , NULL as resprate
+     , NULL as tempc
+     , NULL as spo2 
 	 -- lab values
-	 , CAST(null AS DOUBLE) as POTASSIUM 
-     , CAST(null AS DOUBLE) as SODIUM 
-     , CAST(null AS DOUBLE) as CHLORIDE 
-     , CAST(null AS DOUBLE) as GLUCOSE 
-     , CAST(null AS DOUBLE) as BUN 
-     , CAST(null AS DOUBLE) as CREATININE 
-     , CAST(null AS DOUBLE) as MAGNESIUM 
-     , CAST(null AS DOUBLE) as IONIZEDCALCIUM 
-     , CAST(null AS DOUBLE) as CALCIUM 
-     , CAST(null AS DOUBLE) as CARBONDIOXIDE 
-	 , CAST(null AS DOUBLE) as SGOT 
-     , CAST(null AS DOUBLE) as SGPT 
-     , CAST(null AS DOUBLE) as BILIRUBIN 
-     , CAST(null AS DOUBLE) as ALBUMIN 
-     , CAST(null AS DOUBLE) as HEMOGLOBIN 
-     , CAST(null AS DOUBLE) as WBC 
-     , CAST(null AS DOUBLE) as PLATELET 
-     , CAST(null AS DOUBLE) as PTT 
-     , CAST(null AS DOUBLE) as PT 
-     , CAST(null AS DOUBLE) as INR 
-     , CAST(null AS DOUBLE) as PH 
-     , CAST(null AS DOUBLE) as PaO2 
-     , CAST(null AS DOUBLE) as PaCO2
-     , CAST(null AS DOUBLE) as BASE_EXCESS 
-     , CAST(null AS DOUBLE) as BICARBONATE 
-     , CAST(null AS DOUBLE) as LACTATE 
-     , CAST(null AS DOUBLE) as BANDS
+	 , CAST(NULL AS DOUBLE PRECISION) as POTASSIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as SODIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as CHLORIDE 
+     , CAST(NULL AS DOUBLE PRECISION) as GLUCOSE 
+     , CAST(NULL AS DOUBLE PRECISION) as BUN 
+     , CAST(NULL AS DOUBLE PRECISION) as CREATININE 
+     , CAST(NULL AS DOUBLE PRECISION) as MAGNESIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as IONIZEDCALCIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as CALCIUM 
+     , CAST(NULL AS DOUBLE PRECISION) as CARBONDIOXIDE 
+	 , CAST(NULL AS DOUBLE PRECISION) as SGOT 
+     , CAST(NULL AS DOUBLE PRECISION) as SGPT 
+     , CAST(NULL AS DOUBLE PRECISION) as BILIRUBIN 
+     , CAST(NULL AS DOUBLE PRECISION) as ALBUMIN 
+     , CAST(NULL AS DOUBLE PRECISION) as HEMOGLOBIN 
+     , CAST(NULL AS DOUBLE PRECISION) as WBC 
+     , CAST(NULL AS DOUBLE PRECISION) as PLATELET 
+     , CAST(NULL AS DOUBLE PRECISION) as PTT 
+     , CAST(NULL AS DOUBLE PRECISION) as PT 
+     , CAST(NULL AS DOUBLE PRECISION) as INR 
+     , CAST(NULL AS DOUBLE PRECISION) as PH 
+     , CAST(NULL AS DOUBLE PRECISION) as PaO2 
+     , CAST(NULL AS DOUBLE PRECISION) as PaCO2
+     , CAST(NULL AS DOUBLE PRECISION) as BASE_EXCESS 
+     , CAST(NULL AS DOUBLE PRECISION) as BICARBONATE 
+     , CAST(NULL AS DOUBLE PRECISION) as LACTATE 
+     , CAST(NULL AS DOUBLE PRECISION) as BANDS
 	--  fluids
-	 , CAST(null AS DOUBLE) as urineoutput
-     , CAST(null AS DOUBLE) as iv_total
-     , CAST(null AS DOUBLE) as cum_fluid_balance
-	 , CAST(null AS DOUBLE) as rate_norepinephrine 
-     , CAST(null AS DOUBLE) as rate_epinephrine 
-	 , CAST(null AS DOUBLE) as rate_phenylephrine 
-     , CAST(null AS DOUBLE) as rate_vasopressin 
-	 , CAST(null AS DOUBLE) as rate_dopamine 
-     , CAST(null AS DOUBLE) as vaso_total
+	 , CAST(NULL AS DOUBLE PRECISION) as urineoutput
+     , CAST(NULL AS DOUBLE PRECISION) as iv_total
+     , CAST(NULL AS DOUBLE PRECISION) as cum_fluid_balance
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_norepinephrine 
+     , CAST(NULL AS DOUBLE PRECISION) as rate_epinephrine 
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_phenylephrine 
+     , CAST(NULL AS DOUBLE PRECISION) as rate_vasopressin 
+	 , CAST(NULL AS DOUBLE PRECISION) as rate_dopamine 
+     , CAST(NULL AS DOUBLE PRECISION) as vaso_total
 	-- ventilation parameters
 	 , MechVent 
      , fio2_chartevents as FiO2
 	 , PEEP as PEEP
      , tidal_volume as tidal_volume
      , plateau_pressure as plateau_pressure	
-FROM `getAllVentilationParams` cumflu
+FROM getallventilationparams cumflu
 
 ) merged 
 

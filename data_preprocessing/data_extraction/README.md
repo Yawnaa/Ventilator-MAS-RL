@@ -63,7 +63,15 @@ getAllVentilationParams.sql
 
 getAllVitalSigns.sql
 
-👉 第五步：开始拼接最终表（只拼一半！）
+👉 第五步：回头补算评分 (SIRS & SOFA)
+现在 OverallTable2 终于诞生了！
+回到 Preliminaries/ 根目录，执行那两个带有原作者逻辑 Bug 的脚本：
+
+getSIRS.sql（用我刚才发你的修改版）
+
+getSOFA.sql
+
+👉 第六步：开始拼接最终表（只拼一半！）
 进入 getFinalTable/ 文件夹。
 只执行前两个：
 
@@ -71,13 +79,6 @@ getOverallTable.sql
 
 getOverallTable2.sql
 
-👉 第六步：回头补算评分 (SIRS & SOFA)
-现在 OverallTable2 终于诞生了！
-回到 Preliminaries/ 根目录，执行那两个带有原作者逻辑 Bug 的脚本：
-
-getSIRS.sql（用我刚才发你的修改版）
-
-getSOFA.sql
 
 👉 第七步：完成最终大业
 回到 getFinalTable/ 文件夹，完成最后的拼接：
