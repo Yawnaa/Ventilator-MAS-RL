@@ -86,3 +86,29 @@ getOverallTable2.sql
 getOverallTable3.sql
 
 getOverallTable4.sql
+
+第 1 步：生成所有基础“零件” (SubTables)
+进入 getSubTables/ 文件夹，必须先跑完这四个，否则后面的大表（OverallTable）永远建不起来：
+
+执行 getAllVitalSigns.sql
+
+执行 getAllLabvalues.sql
+
+执行 getAllVentilationParams.sql （🌟 就是它！跑完它，你刚才报的第233行错误就会消失）
+
+执行 getAllFluids.sql
+
+第 2 步：组装第一阶段“大表” (OverallTable 1 & 2)
+现在零件有了，进入 getFinalTable/ 文件夹：
+5.  执行 getOverallTable.sql
+6.  执行 getOverallTable2.sql （🌟 跑完它，OverallTable2 就诞生了，SIRS 的报错也就解决了）
+
+第 3 步：回头计算“临床评分” (SIRS & SOFA)
+现在 OverallTable2 已经存在了，回到 Preliminaries/ 根目录：
+7.  执行 getSIRS.sql
+8.  执行 getSOFA.sql
+
+第 4 步：完成最后拼接
+最后回到 getFinalTable/ 文件夹：
+9.  执行 getOverallTable3.sql
+10. 执行 getOverallTable4.sql
