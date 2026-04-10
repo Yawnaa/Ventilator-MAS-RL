@@ -59,7 +59,7 @@ SELECT merged.subject_id, hadm_id, stay_id, charttime
 	 , avg(rate_dopamine) as rate_dopamine 
      , avg(vaso_total) as vaso_total
 	 --  ventilation parameters
-	 , CAST((avg(mechvent)>0) AS DECIMAL) as MechVent
+	 , CAST((CASE WHEN avg(mechvent) > 0 THEN 1 ELSE 0 END) AS NUMERIC) as MechVent
      , avg(FiO2) as FiO2
 	 , max(PEEP) as PEEP
      , max(tidal_volume) as tidal_volume
