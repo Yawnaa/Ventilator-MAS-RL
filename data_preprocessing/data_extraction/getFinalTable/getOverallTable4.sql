@@ -1,12 +1,56 @@
 -- Code was modified to be campatible with MIMIC IV.
+-- 通常是强化学习提取数据的最后一步（Final Assembly）。它通常负责干这几件事：
 
-DROP table IF EXISTS `OverallTable4`;
-CREATE table `OverallTable4` AS
+/*
+============================================================
+脚本名称：OverallTable4.sql (最终强化学习训练集/队列筛选)
+============================================================
+【本表产出数据说明】：
+1. 仅保留患者处于“机械通气（mechvent=1）”状态下的 4 小时数据片。
+2. 剔除了体重记录异常（单位录入错误）的非真实样本。
+3. 删除了临床相关性较低或缺失值比例极高的冗余特征。
 
-SELECT * FROM `OverallTable3`
-WHERE mechvent = 1 AND stay_id IS NOT NULL AND weight < 1000;
+【本表核心作用】：
+1. 确定训练队列 (Cohort)：这是你的 RL 算法（如 ConformalDQN）直接读取的最终数据源。
+2. 提高奖励信噪比：通过剔除不使用呼吸机的时间段，让模型只学习“插管期间”动作与结局（90天死亡率）的关系。
+3. 解决缺失值问题：执行此脚本后，你会发现由于排除了非通气时刻，潮气量等指标的缺失率将大幅改善。
+============================================================
+*/
 
-ALTER TABLE `OverallTable4`
-DROP COLUMN sgot;
-ALTER TABLE `OverallTable4`
-DROP COLUMN sgpt;
+-- ------------------------------------------------------------
+-- 1. 创建最终过滤表 (OverallTable4)
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS OverallTable4 CASCADE;
+CREATE TABLE OverallTable4 AS
+
+SELECT * FROM OverallTable3
+WHERE 
+    -- 🔒 核心锁：只提取机械通气时间段。这是做呼吸机决策模型的前提。
+    mechvent = 1 
+    
+    -- 🔒 安全锁：确保住院 ID 不为空，剔除可能存在的零散离群记录。
+    AND stay_id IS NOT NULL 
+    
+    -- 🔒 数据质量锁：剔除体重异常值。MIMIC 中偶尔有将“克”记为“千克”导致体重 > 1000 的错误。
+    -- 呼吸机的潮气量(TV)通常按每公斤体重计算，错误的体重会导致核心特征失效。
+    AND weight < 1000;
+
+-- ------------------------------------------------------------
+-- 2. 字段精简 (Feature Pruning)
+-- ------------------------------------------------------------
+-- 移除 sgot 和 sgpt（天门冬氨酸氨基转移酶和丙氨酸氨基转移酶）。
+-- 理由：这两个肝功能指标在呼吸机参数推荐中相关性较低，且在 MIMIC 中缺失率极高，保留它们会引入过多噪声。
+ALTER TABLE OverallTable4 DROP COLUMN IF EXISTS sgot;
+ALTER TABLE OverallTable4 DROP COLUMN IF EXISTS sgpt;
+
+-- ------------------------------------------------------------
+-- 3. 性能优化 (Indexing)
+-- ------------------------------------------------------------
+-- 为最终表建立复合索引，方便后续导出 CSV 或 Python 通过数据库连接进行快速切片读取。
+CREATE INDEX IF NOT EXISTS idx_ot4_stay_time ON OverallTable4(stay_id, start_time);
+
+-- ------------------------------------------------------------
+-- 4. 最终验证语句 (运行完脚本后请执行以下查询)
+-- ------------------------------------------------------------
+-- SELECT COUNT(*) FROM OverallTable4; -- 查看最终剩余的精华数据量
+-- SELECT * FROM OverallTable4 LIMIT 10; -- 观察数据是否整洁
