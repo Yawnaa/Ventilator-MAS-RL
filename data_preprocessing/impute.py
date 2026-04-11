@@ -23,12 +23,12 @@ from utils.imputation_utils import preprocess_imputation
 from constants import DATA_FOLDER_PATH
 
 
-# 定义数据文件夹路径（实际上这里又定义了一次，可能与 constants 重复，但无伤大雅）
-IMPUTED_DATA_DIR_PATH       = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data")
+# 定义数据文件夹路径
+IMPUTED_DATA_DIR_PATH       = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/")
 # 插补参数设置
 IMPUTATION_N                = 1
 IMPUTATION_K                = 3
-# 原始数据文件路径（注意：这里路径写的是 "../data/final-data.csv"，实际指向项目根目录下的 data 文件夹）
+# 原始数据文件路径
 DATA_TABLE_FILE_NAME        = os.path.join(DATA_FOLDER_PATH, "../data/final-data.csv")
 # 插补后数据的保存路径（以 pickle 格式保存，保留数据类型）
 IMPUTED_DATAFRAME_PATH      = os.path.join(DATA_FOLDER_PATH,"imputed.pkl")
@@ -46,9 +46,7 @@ df = preprocess_imputation(full_df, IMPUTATION_N, IMPUTATION_K)
 # 3. 删除仍包含任何缺失值的行（理论上经过上一步后不应再有缺失值，这是最后的安全保障）
 df = df.dropna()
 
-# 4. 输出处理信息，便于检查哪些特征被删除了
 print("removed features:",[col for col in full_df.columns if col not in df.columns ])
 print("final features:",df.columns)
 
-# 5. 将插补后的数据保存为 pickle 文件
 df.to_pickle(IMPUTED_DATAFRAME_PATH)

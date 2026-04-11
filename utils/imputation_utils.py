@@ -66,10 +66,19 @@ def preprocess_imputation(df: pd.DataFrame,  N: int, k_param: int, weights = Non
     df - initial dataframe in correct column name representation
   """
   miss_level = df.drop(labels=['subject_id', 'stay_id', 'hadm_id','start_time'], axis = 1).isnull().sum() / df.shape[0]
-  column_names = df.drop(labels = ['subject_id', 'stay_id', 'hadm_id','start_time'], axis = 1).columns[miss_level >= 0.95]
+  # 1. 定义白名单（这些是 APACHE II 评分强依赖的指标，哪怕缺失率 99% 也绝对不能删）
+  essential_labs = ['ph', 'pao2', 'paco2', 'sodium', 'potassium', 'creatinine', 'wbc', 'temperature', 'meanbp', 'heartrate', 'resprate', 'spo2', 'gcs']
+  # 2. 只有“缺失率 >= 95%” 且 “不在白名单里” 的特征，才会被真的删掉
+  cols_to_check = df.drop(labels = ['subject_id', 'stay_id', 'hadm_id','start_time'], axis = 1).columns
+  column_names = [col for col in cols_to_check if miss_level[col] >= 0.95 and col not in essential_labs]
   df_drop = df.drop(labels = ['subject_id', 'stay_id', 'hadm_id','start_time'], axis = 1).loc[:, miss_level < 0.95] # with subject_id, stay_id, hadm_id, start_time
   df_drop = pd.concat([df_drop, df[['subject_id', 'stay_id', 'hadm_id','start_time']]], axis=1)
   n_count = sum(miss_level > 0.95)
+  # 3. 输出被删除的特征列表，便于检查（注意：这里输出的只是“缺失率 >= 95%”的特征列表，实际被删除的还要看是否在白名单里）
+  saved_cols = [col for col in miss_level.index if miss_level[col] > 0.985 and col in essential_labs]
+  if saved_cols:
+    print(f"\n⚠️ [白名单干预] 以下特征缺失率 > 98.5%，但作为核心医学指标已被强制保留并执行插补：\n {saved_cols}\n")
+  
   print("Removed", n_count, end= " ")
   print("columns with variable names:", *column_names, sep = "\n")
   
@@ -86,9 +95,6 @@ def preprocess_imputation(df: pd.DataFrame,  N: int, k_param: int, weights = Non
 
   df_knn = df_drop.loc[:, (miss_level < 0.3)]
 
-
-
-  
   # for high levels of missingness: sah
   hp = np.full(len(df_sah.columns),np.inf)
   temp = sample_and_hold(df_sah, hold_period = hp)
