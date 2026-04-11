@@ -9,6 +9,44 @@ from utils.load_utils import load_data
 Experience = collections.namedtuple('Experience', field_names=['state', 'action', 'reward', 'done', 'new_state'])
 
 
+def sample(self, batch_size):
+    indices = np.random.randint(0, self.size, batch_size)
+    states = [self.states[i] for i in indices]
+    actions = [self.actions[i] for i in indices]
+    rewards = [self.rewards[i] for i in indices]
+    dones = [self.dones[i] for i in indices]
+    next_states = [self.next_states[i] for i in indices]
+
+    # --- 详细调试开始 ---
+    print("\n[DEBUG] Sampling indices:", indices[:10], "...")
+    problem_indices = []
+    for i, idx in enumerate(indices):
+        ns = self.next_states[idx]
+        if ns is None:
+            print(f"  Buffer index {idx}: None")
+            problem_indices.append(idx)
+        elif isinstance(ns, (list, np.ndarray)):
+            arr = np.array(ns)
+            if arr.shape != (self.state_dim,):
+                print(f"  Buffer index {idx}: shape {arr.shape}, expected ({self.state_dim},)")
+                problem_indices.append(idx)
+        else:
+            print(f"  Buffer index {idx}: unexpected type {type(ns)}")
+            problem_indices.append(idx)
+    
+    if problem_indices:
+        # 打印第一个问题样本的原始存储内容
+        bad_idx = problem_indices[0]
+        print(f"\n[DEBUG] First problematic buffer entry (index {bad_idx}):")
+        print(f"  state: {self.states[bad_idx]}")
+        print(f"  action: {self.actions[bad_idx]}")
+        print(f"  reward: {self.rewards[bad_idx]}")
+        print(f"  done: {self.dones[bad_idx]}")
+        print(f"  next_state: {self.next_states[bad_idx]}")
+    # --- 调试结束 ---
+
+    # 继续原有转换...
+
 def prepare_buffer(data, batch_size=128, buffer_size=1000000, device="cuda"):
     buffer = ReplayBuffer(buffer_size, batch_size, device)
 
@@ -48,6 +86,17 @@ class ReplayBuffer:
     def sample(self):
         indices = np.random.choice(len(self.buffer), self.batch_size, replace=False)
         states, actions, rewards, dones, next_states = zip(*[self.buffer[idx] for idx in indices])
+        valid_dim = len(states[0]) # 获取正确的状态维度（这里就是 19）
+        clean_next_states = []
+        for ns in next_states:
+        # 如果 next_state 是空的、None，或者由于某种原因长度不对，统一用全 0 补齐
+          if ns is None or len(ns) == 0 or len(ns) != valid_dim:
+            clean_next_states.append(np.zeros(valid_dim))
+          else:
+            clean_next_states.append(ns)
+    
+      # 替换原来的 next_states
+        next_states = clean_next_states
         return (
             torch.FloatTensor(np.array(states)).to(self.device),
             torch.LongTensor(np.array(actions)).to(self.device),
@@ -62,6 +111,19 @@ class ReplayBuffer:
         end_index = min(start_index + batch_size, len(self.buffer))
         batch = list(self.buffer)[start_index:end_index]
         states, actions, rewards, dones, next_states = zip(*batch)
+        
+        # === 给 get_batch 也加上一模一样的清洗逻辑 ===
+        valid_dim = len(states[0]) 
+        clean_next_states = []
+        for ns in next_states:
+          if ns is None or len(ns) == 0 or len(ns) != valid_dim:
+            clean_next_states.append(np.zeros(valid_dim))
+          else:
+            clean_next_states.append(ns)
+            
+        next_states = clean_next_states
+        # ==========================================
+
         return (
             torch.FloatTensor(np.array(states)).to(self.device),
             torch.LongTensor(np.array(actions)).to(self.device),

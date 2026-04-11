@@ -33,14 +33,23 @@ def compute_apache2(row):
     score = 0
 
     for measurement, range_list in APACHE_RANGES.items():
+        # 检查该测量列是否存在于当前行
+        if measurement not in row.index:
+            continue  # 列不存在，跳过该项，默认不加分
         patient_value = row[measurement]
+        # 如果值为空，同样跳过
+        if pd.isna(patient_value):
+            continue
+        
         for pair in range_list:
-            if patient_value >= pair[0]:  # If this is the current range for this value
+            if patient_value >= pair[0]:
                 score += pair[1]
                 break
 
-    score += (15 - row["gcs"])  # Different calculation of score for GCS
-
+    # GCS 的处理：如果 gcs 列不存在，则跳过该项（或给默认值 15，即不加分）
+    if 'gcs' in row.index and not pd.isna(row['gcs']):
+        score += (15 - row['gcs'])
+    
     return score
 
 

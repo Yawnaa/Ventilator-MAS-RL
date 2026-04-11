@@ -4,7 +4,7 @@ default_parameters = {
 
     # ENV PARAMETERS
     "num_actions": 343,
-    "state_dim": 44,
+    "state_dim": 19,
     "reward_mode": "ood",
     "state_mode": "ood",
 

@@ -20,7 +20,16 @@ parameters_dic = {
     "ConformalDQN_ood": params.ConformalDQN_ood_parameters,
 
 }
-
+# 调试代码：
+def sample(self, batch_size):
+    indices = np.random.randint(0, self.size, batch_size)
+    states = [self.states[i] for i in indices]
+    next_states = [self.next_states[i] for i in indices]
+    
+    # 调试：打印每个元素的形状
+    print("States shapes:", [s.shape for s in states[:5]])
+    print("Next states shapes:", [ns.shape for ns in next_states[:5]])
+    ...
 
 def get_args(parameters):
     # Load parameters
